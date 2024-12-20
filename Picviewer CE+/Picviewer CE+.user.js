@@ -12,7 +12,7 @@
 // @description:ja       オンラインで画像を強力に閲覧できるツール。ポップアップ表示、拡大・縮小、回転、一括保存などの機能を自動で実行できます
 // @description:pt-BR    Poderosa ferramenta de visualização de imagens on-line, que pode pop-up/dimensionar/girar/salvar em lote imagens automaticamente
 // @description:ru       Мощный онлайн-инструмент для просмотра изображений, который может автоматически отображать/масштабировать/вращать/пакетно сохранять изображения
-// @version              2024.10.27.1
+// @version              2024.12.7.1
 // @icon                 data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAMAAADXqc3KAAAAV1BMVEUAAAD////29vbKysoqKioiIiKysrKhoaGTk5N9fX3z8/Pv7+/r6+vk5OTb29vOzs6Ojo5UVFQzMzMZGRkREREMDAy4uLisrKylpaV4eHhkZGRPT08/Pz/IfxjQAAAAgklEQVQoz53RRw7DIBBAUb5pxr2m3/+ckfDImwyJlL9DDzQgDIUMRu1vWOxTBdeM+onApENF0qHjpkOk2VTwLVEF40Kbfj1wK8AVu2pQA1aBBYDHJ1wy9Cf4cXD5chzNAvsAnc8TjoLAhIzsBao9w1rlVTIvkOYMd9nm6xPi168t9AYkbANdajpjcwAAAABJRU5ErkJggg==
 // @namespace            https://github.com/hoothin/UserScripts
 // @homepage             https://github.com/hoothin/UserScripts/tree/master/Picviewer%20CE%2B
@@ -46,7 +46,7 @@
 // @grant                GM.notification
 // @grant                unsafeWindow
 // @require              https://update.greasyfork.org/scripts/6158/23710/GM_config%20CN.js
-// @require              https://update.greasyfork.org/scripts/438080/1473715/pvcep_rules.js
+// @require              https://update.greasyfork.org/scripts/438080/1492792/pvcep_rules.js
 // @require              https://update.greasyfork.org/scripts/440698/1427239/pvcep_lang.js
 // @downloadURL          https://greasyfork.org/scripts/24204-picviewer-ce/code/Picviewer%20CE+.user.js
 // @updateURL            https://greasyfork.org/scripts/24204-picviewer-ce/code/Picviewer%20CE+.meta.js
@@ -12456,7 +12456,7 @@ ImgOps | https://imgops.com/#b#`;
 
         var matchedRule,
             _URL=location.href.slice(0, 500);
-        const lazyImgAttr = ["data-lazy-src", "org_src", "data-lazy", "data-url", "data-orig-file", "zoomfile", "file", "original", "load-src", "imgsrc", "real_src", "src2", "origin-src", "data-lazyload", "data-lazyload-src", "data-lazy-load-src", "data-ks-lazyload", "data-ks-lazyload-custom", "data-src", "data-defer-src", "data-actualsrc", "data-cover", "data-original", "data-thumb", "data-imageurl", "data-placeholder", "lazysrc", "data-preview"];
+        const lazyImgAttr = ["data-lazy-src", "org_src", "data-lazy", "data-url", "data-orig-file", "zoomfile", "file", "original", "load-src", "imgsrc", "real_src", "src2", "origin-src", "data-lazyload", "data-lazyload-src", "data-lazy-load-src", "data-ks-lazyload", "data-ks-lazyload-custom", "data-src", "data-defer-src", "data-actualsrc", "data-cover", "data-original", "data-thumb", "data-imageurl", "data-placeholder", "lazysrc", "data-preview", "data-page-image-url"];
         var tprules = [
             function(a) {
                 if (this.currentSrc && !this.src) this.src = this.currentSrc;
@@ -13898,11 +13898,12 @@ ImgOps | https://imgops.com/#b#`;
                     }
                     if (self.lockMaxSize) {
                         storage.setListItem("maxSize", location.hostname, self.lockMaxSize);
-                        storage.setListItem("minSize", location.hostname, {h: sizeInputH.value, w: sizeInputW.value});
+                        self.curDefaultSize = {h: sizeInputH.value, w: sizeInputW.value};
                     } else {
                         storage.setListItem("maxSize", location.hostname, "");
-                        storage.setListItem("minSize", location.hostname, "");
+                        self.curDefaultSize = "";
                     }
+                    storage.setListItem("minSize", location.hostname, self.curDefaultSize);
                 };
 
                 var maximizeTrigger=document.createElement('span');
@@ -15690,11 +15691,12 @@ ImgOps | https://imgops.com/#b#`;
                 sizeInputW.title="min width: "+sizeInputW.value+"px";
                 sizeInputWSpan.innerHTML=createHTML("W: "+Math.floor(sizeInputW.value)+"px");
                 clearTimeout(this.saveDefaultSize);
+                var self=this;
                 this.saveDefaultSize = setTimeout(() => {
-                    storage.setListItem("minSize", location.hostname, {h: sizeInputH.value, w: sizeInputW.value});
+                    self.curDefaultSize = {h: sizeInputH.value, w: sizeInputW.value};
+                    storage.setListItem("minSize", location.hostname, self.curDefaultSize);
                 }, 1000);
 
-                var self=this;
                 var viewmoreShow = this.eleMaps['sidebar-toggle'].style.visibility == 'hidden';
                 if(viewmoreShow){
                     var maxSizeH=0,minSizeH=0,maxSizeW=0,minSizeW=0;
@@ -17959,35 +17961,48 @@ ImgOps | https://imgops.com/#b#`;
                     }
                     return total;
                 }
-                var imgs = Array.from(body.querySelectorAll('*')).concat([body]).reduceRight((total, node) => {
-                    return anylizeEle(total, node);
-                }, []);
-                [].forEach.call(document.head.querySelectorAll("link[rel*='icon']"), node => {
-                    if (imageReg.test(node.href)) {
-                        node.src = node.href;
-                        linkMedias.push(node);
-                    }
-                });
-                [].forEach.call(document.head.querySelectorAll('meta[itemprop="image"]'), node => {
-                    if (imageReg.test(node.content)) {
-                        node.src = node.content;
-                        linkMedias.push(node);
-                    }
-                });
-                imgs = imgs.reverse().concat(linkMedias.reverse());
-                // 排除库里面的图片
-                imgs = imgs.filter(function(img){
-                    if (img.parentNode) {
-                        if (img.parentNode.id=="icons" || img.parentNode.id=="pagetual-preload") {
-                            return false;
-                        } else if (img.parentNode.classList && img.parentNode.classList.contains("search-jumper-btn")) {
-                            return false;
-                        } else if (img.classList && img.classList.contains("pagetual")) {
-                            return false;
+                var imgs;
+                if (matchedRule.gallery) {
+                    imgs = matchedRule.gallery();
+                } else {
+                    imgs = Array.from(body.querySelectorAll('*')).concat([body]).reduceRight((total, node) => {
+                        return anylizeEle(total, node);
+                    }, []);
+                    [].forEach.call(document.head.querySelectorAll("link[rel*='icon']"), node => {
+                        if (imageReg.test(node.href)) {
+                            node.src = node.href;
+                            linkMedias.push(node);
                         }
-                    }
-                    return !(container.contains(img) || (preloadContainer&&preloadContainer.contains(img)));
-                });
+                    });
+                    [].forEach.call(document.head.querySelectorAll('meta[itemprop="image"]'), node => {
+                        if (imageReg.test(node.content)) {
+                            node.src = node.content;
+                            linkMedias.push(node);
+                        }
+                    });
+                    imgs = imgs.reverse().sort((a, b) => {
+                        if (a.offsetParent && !b.offsetParent) {
+                            return -1;
+                        }
+                        if (!a.offsetParent && b.offsetParent) {
+                            return 1;
+                        }
+                        return 0;
+                    }).concat(linkMedias.reverse());
+                    // 排除库里面的图片
+                    imgs = imgs.filter(function(img){
+                        if (img.parentNode) {
+                            if (img.parentNode.id=="icons" || img.parentNode.id=="pagetual-preload") {
+                                return false;
+                            } else if (img.parentNode.classList && img.parentNode.classList.contains("search-jumper-btn")) {
+                                return false;
+                            } else if (img.classList && img.classList.contains("pagetual")) {
+                                return false;
+                            }
+                        }
+                        return !(container.contains(img) || (preloadContainer&&preloadContainer.contains(img)));
+                    });
+                }
 
                 await sleep(0);
                 // 已经在图库里面的
@@ -21188,6 +21203,10 @@ ImgOps | https://imgops.com/#b#`;
                     margin-right: -5px;\
                     padding: 3px;\
                     }\
+                    .pv-pic-search-state>span>strong {\
+                    background: inherit;\
+                    color: inherit;\
+                    }\
                     span.pv-pic-search-state>.pv-icon {\
                     width: 20px;\
                     height: 20px;\
@@ -24279,6 +24298,16 @@ ImgOps | https://imgops.com/#b#`;
                                     }
                                     if (site.ext) {
                                         self.ext = site.ext;
+                                    }
+                                    if (site.gallery) {
+                                        let gallery = site.gallery;
+                                        self.gallery = () => {
+                                            if (typeof gallery === "string") {
+                                                return document.querySelectorAll(gallery);
+                                            } else {
+                                                return gallery();
+                                            }
+                                        };
                                     }
                                     if (site.video) {
                                         let reMatch = typeof site.video === "string" && site.video.match(/^\/(.*)\/(\w*)$/);

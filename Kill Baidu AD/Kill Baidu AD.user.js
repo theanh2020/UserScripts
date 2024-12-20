@@ -4,7 +4,7 @@
 // @name:zh-TW         百度廣告(首尾推廣及右側廣告)清理
 // @name:en            Kill Baidu AD
 // @namespace          hoothin
-// @version            1.23.10
+// @version            1.23.11
 // @description        彻底清理百度搜索(www.baidu.com)结果首尾的推广广告、二次顽固广告、右侧广告，去除重定向，删除百家号
 // @description:zh-CN  彻底清理百度搜索(www.baidu.com)结果首尾的推广广告、二次顽固广告、右侧广告，去除重定向，移除百家号
 // @description:zh-TW  徹底清理百度搜索(www.baidu.com)結果首尾的推廣廣告、二次頑固廣告、右側廣告，去除重定向，刪除百家號
@@ -99,7 +99,7 @@
             let title = item.querySelector('[data-module="title"]');
             let isBlack = checkBlackList(mu, title && title.innerText);
             if (isBlack) {
-                item.remove();
+                item.classList.add("blocked");
                 return;
             }
         }
@@ -107,7 +107,7 @@
 
     function checkLeftItem(item) {
         let mu = item.getAttribute("mu");
-        if (mu && mu !== 'null' && mu.indexOf("nourl") == -1) {
+        if (mu && mu !== 'null' && mu.indexOf("http") == 0 && mu.indexOf("nourl") == -1 && item.getAttribute("tpl") != "short_video") {
             if (/^https:\/\/baijiahao\.baidu\.com/.test(mu)) {
                 item.remove();
                 return;
@@ -115,7 +115,7 @@
                 let title = item.querySelector('h3');
                 let isBlack = checkBlackList(mu, title && title.innerText);
                 if (isBlack) {
-                    item.remove();
+                    item.classList.add("blocked");
                     return;
                 }
                 let link = item.querySelector("a[href*='www.baidu.com/link']");
@@ -236,6 +236,14 @@
     }
     function initCss() {
         killRightStyle && killRightStyle.parentNode && killRightStyle.parentNode.removeChild(killRightStyle);
+        GM_addStyle(`
+        body:not(.showBlocked) .blocked {
+            display: none!important;
+        }
+        body.showBlocked .blocked {
+            background: linen;
+        }
+        `);
         if (killRight) {
             killRightStyle = GM_addStyle(`
             #content_right,[tpl="recommend_list"],#rs_new {
@@ -397,32 +405,34 @@
         if (pattern === '<all_urls>') {
             return true;
         }
-        let match = pattern.match(/^(\*|[\w-]+):\/{2,3}(?:(\*|\*\.[^/*]+|[^/*]+)\/)?(.*)$/);
-        if (!match) return url.indexOf(pattern) !== -1;
-        const [, scheme, host, path] = match;
-        const urlScheme = url.split(':')[0];
-        const urlParam = new URL(url);
-        if (scheme === '*' || urlScheme === scheme) {
-            if (host !== '*') {
-                const urlHost = urlParam.hostname;
-                if (host.startsWith('*')) {
-                    const hostPattern = host.slice(2);
-                    if (!urlHost.endsWith(hostPattern)) return false;
-                } else {
-                    if (urlHost !== host) return false;
+        try {
+            let match = pattern.match(/^(\*|[\w-]+):\/{2,3}(?:(\*|\*\.[^/*]+|[^/*]+)\/)?(.*)$/);
+            if (!match) return url.indexOf(pattern) !== -1;
+            const [, scheme, host, path] = match;
+            const urlScheme = url.split(':')[0];
+            const urlParam = new URL(url);
+            if (scheme === '*' || urlScheme === scheme) {
+                if (host !== '*') {
+                    const urlHost = urlParam.hostname;
+                    if (host.startsWith('*')) {
+                        const hostPattern = host.slice(2);
+                        if (!urlHost.endsWith(hostPattern)) return false;
+                    } else {
+                        if (urlHost !== host) return false;
+                    }
                 }
+                const urlPath = urlParam.pathname + urlParam.search;
+                const pathRegex = new RegExp(`^${path.replace(/([\.\?])/g, '\\$1').replace(/\*/g, '.*')}$`);
+                return pathRegex.test(urlPath);
             }
-            const urlPath = urlParam.pathname + urlParam.search;
-            const pathRegex = new RegExp(`^${path.replace(/([\.\?])/g, '\\$1').replace(/\*/g, '.*')}$`);
-            return pathRegex.test(urlPath);
-        }
+        } catch(e) {}
         return false;
     }
 
     function registerMenuCommand() {
         initCss();
         if (window.top !== window.self) return;
-        hidePictureRegister = GM_registerMenuCommand(hidePicture ? "✅ 恢复图片与样式" : "❌ 隐藏图片并简化样式", () => {
+        hidePictureRegister = GM_registerMenuCommand(hidePicture ? "✅ 恢复图片视频与样式" : "❌ 隐藏图片视频并简化样式", () => {
             GM_unregisterMenuCommand(killRightRegister);
             GM_unregisterMenuCommand(hidePictureRegister);
             hidePicture = !hidePicture;
@@ -536,6 +546,10 @@
                 return;
             }
             registerMenuCommand();
+            GM_registerMenuCommand("👁️ 检查屏蔽元素", () => {
+                alert(`屏蔽元素数量：${document.body.querySelectorAll(".blocked").length}`)
+                document.body.classList.toggle("showBlocked");
+            });
             GM_registerMenuCommand("🔧 打开设置页", () => {
                 GM_openInTab("https://greasyfork.org/scripts/24192", {active: true});
             });
